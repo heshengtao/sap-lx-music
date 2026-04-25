@@ -1,0 +1,14 @@
+{
+  "name": "sap-lx-music",
+  "version": "1.0.0",
+  "description": "Connect the super agent party extension to the LX Music API,Let AI companion control music playback!",
+  "author": "heshengtao",
+  "repository": "https://github.com/heshengtao/sap-lx-music",
+  "backupRepository": "https://gitee.com/heshengtao/sap-lx-music",
+  "category": "Utility",
+  "systemPrompt": "",
+  "transparent": false,
+  "width": 420,
+  "height": 720,
+  "enableVrmWindowSize": false
+}

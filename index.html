@@ -1,0 +1,1005 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>LX Music Premium Web</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+:root {
+  /* 网易云音乐 Light Theme Variables */
+  --theme-bg: #ffffff;
+  --theme-bar: #ffffff;
+  --theme-text-main: #333333;
+  --theme-text-sub: #888888;
+  --border: rgba(0,0,0,0.08);
+  --accent: #ec4141; /* 网易红 */
+  --accent-hover: #d73a3a;
+  
+  /* 视图状态变量（平时跟随主题，沉浸模式时强制覆盖为白色） */
+  --view-text-main: var(--theme-text-main);
+  --view-text-sub: var(--theme-text-sub);
+  
+  --transition: 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+body.dark {
+  /* 网易云音乐 Dark Theme Variables */
+  --theme-bg: #2b2b2b;
+  --theme-bar: #222222;
+  --theme-text-main: #e0e0e0;
+  --theme-text-sub: #888888;
+  --border: rgba(255,255,255,0.06);
+}
+
+/* 沉浸式歌词模式（不管黑夜白天，背景强制变暗，字体强制变亮） */
+body.immersion {
+  --view-text-main: #ffffff;
+  --view-text-sub: rgba(255, 255, 255, 0.6);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { 
+  height: 100%; font-family: var(--font); -webkit-font-smoothing: antialiased; 
+  overflow: hidden; background: var(--theme-bg); color: var(--theme-text-main);
+  user-select: none; -webkit-user-select: none;
+  transition: background var(--transition);
+}
+
+/* ========== 背景与遮罩层 ========== */
+#bgBlur {
+  position: absolute; inset: -10%; z-index: 0;
+  background-size: cover; background-position: center;
+  filter: blur(60px); opacity: 0; 
+  transition: opacity 0.6s ease, background-image 0.8s ease;
+  pointer-events: none;
+}
+#bgMask {
+  position: absolute; inset: -10%; z-index: 1;
+  background: rgba(0,0,0,0.65); opacity: 0; 
+  transition: opacity 0.6s ease;
+  pointer-events: none;
+}
+body.immersion #bgBlur { opacity: 1; }
+body.immersion #bgMask { opacity: 1; }
+
+/* ========== 连接欢迎页 ========== */
+#startupScreen {
+  position: absolute; inset: 0; z-index: 1000;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: var(--theme-bg); transition: opacity 0.5s ease, visibility 0.5s;
+}
+#startupScreen.hidden { opacity: 0; visibility: hidden; }
+.startup-card {
+  background: var(--theme-bar); padding: 50px 40px; border-radius: 20px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.1); border: 1px solid var(--border);
+  text-align: center; width: 90%; max-width: 380px; position: relative;
+}
+body.dark .startup-card { box-shadow: 0 20px 60px rgba(0,0,0,0.4); }
+.startup-logo i { font-size: 56px; color: var(--accent); margin-bottom: 24px; }
+.startup-title { font-size: 22px; font-weight: bold; margin-bottom: 10px; color: var(--theme-text-main); }
+.startup-desc { font-size: 13px; color: var(--theme-text-sub); margin-bottom: 30px; }
+.input-group input {
+  width: 100%; padding: 15px; border-radius: 10px; border: 1px solid var(--border);
+  background: rgba(128,128,128,0.05); color: var(--theme-text-main);
+  font-size: 15px; outline: none; text-align: center; transition: 0.2s;
+  margin-bottom: 24px; font-family: var(--font);
+}
+.input-group input:focus { border-color: var(--accent); }
+.btn-primary {
+  width: 100%; padding: 15px; border-radius: 40px; border: none;
+  background: var(--accent); color: #fff; font-size: 15px; font-weight: bold;
+  cursor: pointer; transition: 0.2s;
+}
+.btn-primary:hover { background: var(--accent-hover); transform: scale(1.02); }
+
+/* ========== 顶部右侧悬浮栏 ========== */
+#topBar {
+  position: absolute; top: 0; left: 0; right: 0; height: 70px;
+  display: flex; justify-content: flex-end; align-items: center; padding: 0 32px; z-index: 10;
+}
+.glass-btn {
+  width: 34px; height: 34px; border-radius: 50%;
+  background: rgba(128, 128, 128, 0.15); backdrop-filter: blur(10px);
+  border: 1px solid rgba(128, 128, 128, 0.2); color: var(--theme-text-main);
+  display: flex; align-items: center; justify-content: center;
+  margin-left: 14px; cursor: pointer; transition: all 0.2s;
+  font-size: 14px; font-weight: bold;
+}
+.glass-btn:hover { background: rgba(128, 128, 128, 0.25); transform: scale(1.08); }
+body.immersion .glass-btn { color: #ffffff; background: rgba(255,255,255,0.15); border-color: rgba(255,255,255,0.2); }
+
+/* ========== 主体视图 (【核心修复】防止被高度撑爆) ========== */
+#playerScreen { 
+  position: absolute; inset: 0; display: flex; flex-direction: column; 
+  z-index: 1; overflow: hidden; /* 修复溢出 */
+}
+#mainView {
+  flex: 1; min-height: 0; /* 【关键修复】防止被子元素的 50vh 占位撑开 */
+  display: flex; padding: 60px 8vw 0; gap: 8vw;
+  align-items: center; justify-content: center; position: relative; z-index: 2;
+  color: var(--view-text-main); transition: all 0.5s;
+}
+
+/* 封面区块排版优化 */
+#coverSection {
+  flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  transition: all 0.5s cubic-bezier(0.25, 0.1, 0.25, 1); max-width: 360px; margin: 0 auto;
+}
+body.immersion #coverSection { align-items: flex-end; max-width: 450px; margin: 0; }
+
+#artworkWrapper {
+  width: 100%; aspect-ratio: 1; position: relative; border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.08); overflow: hidden; background: rgba(128,128,128,0.1);
+  transition: all 0.5s;
+}
+body.dark #artworkWrapper { box-shadow: 0 15px 40px rgba(0,0,0,0.3); }
+body.immersion #artworkWrapper { box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+#albumArt { width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity 0.5s ease; }
+#artworkPlaceholder { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 72px; color: rgba(128,128,128,0.3); }
+
+/* 歌词区结构更新 */
+#lyricSection {
+  flex: 1; height: 100%; min-height: 0;
+  max-width: 550px; overflow-y: auto; scroll-behavior: smooth;
+  position: relative; text-align: center; display: none;
+  /* 把顶部的 15% 调整为 10% 让上方显示更清晰 */
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 10%, black 85%, transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0%, black 10%, black 85%, transparent 100%);
+}
+#lyricSection::-webkit-scrollbar { display: none; }
+#lyricInner { display: block; position: relative; } 
+.lyric-line {
+  font-size: 16px; font-weight: 500; color: var(--view-text-sub);
+  padding: 14px 20px; cursor: pointer; transition: all 0.3s; line-height: 1.6;
+}
+.lyric-line:hover { color: var(--view-text-main); }
+.lyric-line.active {
+  color: var(--view-text-main); font-size: 26px; font-weight: bold;
+  padding: 24px 20px; text-shadow: 0 2px 12px rgba(0,0,0,0.25);
+}
+
+/* ========== 高级感底部控制栏 (【核心修复】钉死高度，不被挤压) ========== */
+#bottomBar {
+  flex-shrink: 0; /* 【关键修复】控制栏绝对不会被挤压或挤出屏幕外 */
+  height: 80px; background: var(--theme-bar); border-top: 1px solid var(--border);
+  display: flex; justify-content: space-between; align-items: center; padding: 0 28px;
+  z-index: 10; position: relative; color: var(--theme-text-main);
+}
+/* 左侧 */
+.bar-left { width: 280px; flex-shrink: 0; display: flex; align-items: center; gap: 12px; }
+.mini-cover { width: 48px; height: 48px; border-radius: 6px; background: rgba(128,128,128,0.1); object-fit: cover; }
+.song-info { display: flex; flex-direction: column; justify-content: center; overflow: hidden; white-space: nowrap; max-width: 150px; }
+.song-name { font-size: 14px; font-weight: 600; text-overflow: ellipsis; overflow: hidden; }
+.song-artist { font-size: 12px; color: var(--theme-text-sub); margin-top: 4px; text-overflow: ellipsis; overflow: hidden; }
+.heart-btn { font-size: 18px; color: var(--theme-text-sub); background: transparent; border: none; cursor: pointer; transition: 0.2s; margin-left: 6px; }
+.heart-btn:hover { color: var(--theme-text-main); transform: scale(1.1); }
+.heart-btn.collected { color: var(--accent); }
+
+/* 中间控制区 */
+.bar-center {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  max-width: 500px; margin: 0 auto;
+}
+.controls-row { display: flex; align-items: center; gap: 32px; margin-bottom: 8px; }
+.ctrl-btn { background: transparent; border: none; color: var(--theme-text-main); font-size: 18px; cursor: pointer; transition: 0.2s; opacity: 0.9; }
+.ctrl-btn.minor { font-size: 15px; opacity: 0.6; }
+.ctrl-btn:hover { opacity: 1; transform: scale(1.1); }
+.ctrl-btn:active { transform: scale(0.95); }
+.play-btn {
+  width: 40px; height: 40px; border-radius: 50%;
+  background: var(--accent); color: #fff !important;
+  display: flex; align-items: center; justify-content: center; font-size: 16px;
+  box-shadow: 0 4px 12px rgba(236, 65, 65, 0.25);
+}
+.play-btn:hover { background: var(--accent-hover); }
+
+/* 细长高级进度条与音量条 */
+.progress-container { width: 100%; display: flex; align-items: center; gap: 12px; font-size: 11px; color: var(--theme-text-sub); font-weight: 500;}
+.custom-slider { flex: 1; height: 16px; display: flex; align-items: center; cursor: pointer; position: relative; }
+.slider-track { width: 100%; height: 3px; background: var(--border); border-radius: 2px; position: relative; transition: height 0.15s; }
+.slider-fill { height: 100%; background: var(--accent); border-radius: 2px; position: relative; }
+.custom-slider:hover .slider-track { height: 5px; background: rgba(128,128,128,0.15); }
+.slider-thumb {
+  position: absolute; right: -5px; top: 50%; transform: translateY(-50%) scale(0);
+  width: 10px; height: 10px; background: var(--accent); border-radius: 50%; transition: 0.15s;
+}
+.custom-slider:hover .slider-thumb { transform: translateY(-50%) scale(1); }
+
+/* 右侧工具区 */
+.bar-right { width: 280px; flex-shrink: 0; display: flex; justify-content: flex-end; align-items: center; gap: 20px; }
+.vol-slider-wrap { width: 60px; }
+.lyric-toggle { position: relative; font-size: 17px; color: var(--theme-text-sub); background: transparent; border: none; cursor: pointer; transition: 0.2s; }
+.lyric-toggle:hover { color: var(--theme-text-main); }
+.lyric-toggle.active { color: var(--accent); }
+
+/* ========== 自定义 Toast 提示 ========== */
+#globalToast {
+  position: fixed; top: -60px; left: 50%; transform: translateX(-50%);
+  background: rgba(0,0,0,0.8); color: #fff; padding: 12px 24px;
+  border-radius: 8px; font-size: 14px; font-weight: 500;
+  backdrop-filter: blur(10px); z-index: 9999; pointer-events: none;
+  transition: all 0.4s cubic-bezier(0.25, 0.1, 0.25, 1); box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+}
+#globalToast.show { top: 40px; }
+
+/* ========== 全网搜索模态框 ========== */
+#searchModal {
+  position: fixed; inset: 0; z-index: 3000; display: flex; align-items: center; justify-content: center;
+  transition: opacity 0.3s; opacity: 0; pointer-events: none;
+}
+#searchModal.show { opacity: 1; pointer-events: auto; }
+.search-mask { position: absolute; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(12px); }
+.search-content {
+  position: relative; z-index: 1; width: 90%; max-width: 500px;
+  background: var(--theme-bg); padding: 40px; border-radius: 20px; text-align: center;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.2); border: 1px solid var(--border);
+}
+.search-icon { font-size: 32px; color: var(--accent); margin-bottom: 24px; }
+#searchInput {
+  width: 100%; padding: 18px 20px; font-size: 18px; border: 1px solid var(--border);
+  border-radius: 12px; background: rgba(128,128,128,0.05); color: var(--theme-text-main);
+  outline: none; text-align: center; transition: border 0.2s;
+}
+#searchInput:focus { border-color: var(--accent); }
+.search-tip { margin-top: 16px; font-size: 13px; color: var(--theme-text-sub); }
+
+/* ========== 响应式布局 (Mobile & Tablet 适配) ========== */
+@media (max-width: 900px) { /* 断点扩宽至900px，适配大多数平板竖屏和所有手机 */
+  #mainView { padding: 60px 5vw 0; gap: 0; flex-direction: column; }
+  #coverSection { max-width: 320px; align-items: center !important; flex: none; margin-bottom: 20px !important; }
+  #lyricSection { flex: 1; max-width: 100%; }
+  
+  #bottomBar { height: 130px; flex-direction: column; padding: 12px 16px; justify-content: center; gap: 10px; }
+  
+  /* 左侧歌曲信息整体水平居中 */
+  .bar-left { width: 100%; justify-content: center; } 
+  
+  .bar-center { width: 100%; max-width: 100%; }
+  .controls-row { gap: 40px; margin-bottom: 12px; }
+  .bar-right { display: none; }
+}
+</style>
+</head>
+<body>
+
+<!-- 全局背景模糊与遮罩 -->
+<div id="bgBlur"></div>
+<div id="bgMask"></div>
+
+<!-- 自定义 Toast -->
+<div id="globalToast">提示信息</div>
+
+<!-- 搜索与点歌模态框 -->
+<div id="searchModal">
+  <div class="search-mask" onclick="closeSearch()"></div>
+  <div class="search-content">
+    <div class="search-icon"><i class="fa-brands fa-searchengin"></i></div>
+    
+    <!-- 提示文案修改 -->
+    <h2 style="margin-bottom: 15px; font-size: 20px;">跨端点歌 / 搜索</h2>
+    
+    <input type="text" id="searchInput" placeholder="输入 歌曲名 或 歌曲名-歌手..." onkeydown="handleSearch(event)">
+    
+    <div style="display: flex; gap: 15px; margin-top: 20px; justify-content: center;">
+      <button onclick="executeAction('searchPlay')" style="padding: 10px 20px; background: var(--accent); color: white; border: none; border-radius: 20px; cursor: pointer; font-weight: bold;">
+        <i class="fa-solid fa-play"></i> 直接播放
+      </button>
+      <button onclick="executeAction('search')" style="padding: 10px 20px; background: rgba(128,128,128,0.1); color: var(--theme-text-main); border: none; border-radius: 20px; cursor: pointer; font-weight: bold;">
+        <i class="fa-solid fa-magnifying-glass"></i> 在客户端搜索
+      </button>
+    </div>
+    <div class="search-tip" style="margin-top: 20px;">建议输入格式："晴天-周杰伦"，以获得最精准的直接播放结果</div>
+  </div>
+</div>
+
+<!-- 启动连接页 -->
+<div id="startupScreen">
+  <div class="startup-card">
+    <div style="position:absolute; top:20px; right:20px; display:flex;">
+      <button class="glass-btn" onclick="toggleDarkMode()"><i class="fa-solid fa-moon" id="startupDarkIcon"></i></button>
+      <button class="glass-btn" id="startupLangBtn" onclick="toggleLanguage()">EN</button>
+    </div>
+    <div class="startup-logo"><i class="fa-solid fa-compact-disc"></i></div>
+    <h1 class="startup-title" id="t-welcome">连接 LX Music</h1>
+    <p class="startup-desc" id="t-desc">高级桌面端控制面板</p>
+    
+    <div class="input-group">
+      <input type="number" id="portInput" value="23330" min="1" max="65535" placeholder="桌面端 API 端口号" onkeypress="if(event.key==='Enter') toggleConnection()">
+    </div>
+    <button class="btn-primary" id="connectBtn" onclick="toggleConnection()">连接播放器</button>
+  </div>
+</div>
+
+<!-- 播放器主页 -->
+<div id="playerScreen" style="opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 0.5s;">
+  <!-- 右上角悬浮工具 -->
+  <div id="topBar">
+    <button class="glass-btn" onclick="toggleDarkMode()" title="切换深色模式"><i class="fa-solid fa-moon" id="darkIcon"></i></button>
+    <button class="glass-btn" id="langBtn" onclick="toggleLanguage()">EN</button>
+    <button class="glass-btn" onclick="disconnect()" title="断开连接" id="t-disconnect"><i class="fa-solid fa-power-off"></i></button>
+  </div>
+
+  <!-- 主视图区 -->
+  <div id="mainView">
+    <div id="coverSection">
+      <div id="artworkWrapper">
+        <div id="artworkPlaceholder"><i class="fa-solid fa-music"></i></div>
+        <img id="albumArt" src="" alt="">
+      </div>
+    </div>
+    <!-- 带有物理占位高度的歌词区，保障完美居中 -->
+    <div id="lyricSection">
+      <div id="lyricInner">
+        <div style="height: 35vh; flex-shrink: 0;"></div>
+        <div class="lyric-line active" id="lyricPlaceholder">连接播放器后可显示歌词</div>
+        <div style="height: 60vh; flex-shrink: 0;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 底部网易云高级排版控制栏 -->
+  <div id="bottomBar">
+    <!-- 左侧：封面与歌曲信息 -->
+    <div class="bar-left">
+      <img src="" id="miniCover" class="mini-cover" style="opacity:0;" alt="">
+      <div class="song-info">
+        <div class="song-name" id="songName">未在播放音乐</div>
+        <div class="song-artist" id="songArtist">--</div>
+      </div>
+      <button class="heart-btn" id="collectBtn" onclick="toggleCollect()"><i class="fa-regular fa-heart" id="collectIcon"></i></button>
+    </div>
+
+    <!-- 中间：控制及进度 -->
+    <div class="bar-center">
+      <div class="controls-row">
+        <!-- 播放模式 (假定有此功能，若无则仅展示UI提示) -->
+        <button class="ctrl-btn minor" title="播放模式" onclick="togglePlayMode()"><i class="fa-solid fa-repeat" id="playModeIcon"></i></button>
+        <button class="ctrl-btn" onclick="sendCmd('skip-prev')"><i class="fa-solid fa-backward-step"></i></button>
+        <button class="ctrl-btn play-btn" id="playBtn" onclick="togglePlay()"><i class="fa-solid fa-play" style="margin-left:3px"></i></button>
+        <button class="ctrl-btn" onclick="sendCmd('skip-next')"><i class="fa-solid fa-forward-step"></i></button>
+        <!-- 唤起搜索按钮在这里 -->
+        <button class="ctrl-btn minor" title="全网搜索" onclick="openSearch()"><i class="fa-solid fa-magnifying-glass"></i></button>
+      </div>
+      <div class="progress-container">
+        <span id="currentTime">00:00</span>
+        <div class="custom-slider" id="progressTrack" onmousedown="startSeek(event, 'progress')" ontouchstart="startSeek(event, 'progress')">
+          <div class="slider-track"><div class="slider-fill" id="progressFill" style="width:0%"><div class="slider-thumb"></div></div></div>
+        </div>
+        <span id="totalTime">00:00</span>
+      </div>
+    </div>
+
+    <!-- 右侧：工具与极简音量 -->
+    <div class="bar-right">
+      <button class="lyric-toggle" id="lyricBtn" onclick="toggleLyricView()"><i class="fa-solid fa-align-center"></i></button>
+      <button class="lyric-toggle" id="volumeIconBtn" onclick="toggleMute()"><i class="fa-solid fa-volume-high" id="volumeIcon"></i></button>
+      <div class="custom-slider vol-slider-wrap" id="volumeTrack" onmousedown="startSeek(event, 'volume')" ontouchstart="startSeek(event, 'volume')">
+        <div class="slider-track"><div class="slider-fill" id="volumeFill" style="width:50%"><div class="slider-thumb"></div></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ==================== 自定义 Toast ====================
+let toastTimer = null;
+function showToast(msg) {
+  const toast = document.getElementById('globalToast');
+  toast.textContent = msg;
+  toast.classList.add('show');
+  if(toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { toast.classList.remove('show'); }, 3000);
+}
+
+// ==================== 国际化 ====================
+const i18n = {
+  zh: {
+    welcome: '连接 LX Music', desc: '高级桌面端控制面板', connect: '连接播放器', connecting: '连接中...',
+    disconnect: '断开连接', notPlaying: '未在播放音乐', unknownArtist: '未知歌手',
+    lyricHint: '点击右侧歌词按钮进入沉浸模式', noLyric: '该歌曲暂无歌词'
+  },
+  en: {
+    welcome: 'Connect LX Music', desc: 'Premium Desktop Control', connect: 'Connect Player', connecting: 'Connecting...',
+    disconnect: 'Disconnect', notPlaying: 'No Music Playing', unknownArtist: 'Unknown Artist',
+    lyricHint: 'Click lyric button to enter Immersion Mode', noLyric: 'No lyrics available'
+  }
+};
+
+let lang = localStorage.getItem('lx_player_lang') || 'zh';
+function t(k){ return i18n[lang]?.[k] || i18n.zh[k] || k; }
+function toggleLanguage(){
+  lang = lang === 'zh' ? 'en' : 'zh';
+  localStorage.setItem('lx_player_lang', lang);
+  updateAllTexts();
+}
+function updateAllTexts(){
+  document.getElementById('startupLangBtn').textContent = lang === 'zh' ? 'EN' : '中';
+  document.getElementById('langBtn').textContent = lang === 'zh' ? 'EN' : '中';
+  document.getElementById('t-welcome').textContent = t('welcome');
+  document.getElementById('t-desc').textContent = t('desc');
+  document.getElementById('connectBtn').textContent = state.connecting ? t('connecting') : t('connect');
+  document.getElementById('t-disconnect').title = t('disconnect');
+  if(!state.songName) document.getElementById('songName').textContent = t('notPlaying');
+  
+  const ph = document.getElementById('lyricPlaceholder');
+  if(ph) ph.textContent = state.connected ? t('noLyric') : t('lyricHint');
+}
+
+// ==================== 状态管理 ====================
+const state = {
+  apiBase: '', connected: false, connecting: false, playing: false,
+  currentTime: 0, duration: 0, songName: '', artist: '', picUrl: '', lyricRaw: '',
+  collected: false, volume: 50, mute: false, isSeeking: false, lastLyricIdx: -1,
+  showLyrics: false, playModeIdx: 0
+};
+const playModes =['list-loop', 'random', 'single-loop'];
+let eventSource=null, pollTimer=null;
+
+// ==================== DOM 引用 ====================
+const dom = {
+  startup: document.getElementById('startupScreen'), player: document.getElementById('playerScreen'),
+  portInput: document.getElementById('portInput'), connectBtn: document.getElementById('connectBtn'),
+  bgBlur: document.getElementById('bgBlur'),
+  albumArt: document.getElementById('albumArt'), miniCover: document.getElementById('miniCover'),
+  placeholder: document.getElementById('artworkPlaceholder'),
+  songName: document.getElementById('songName'), songArtist: document.getElementById('songArtist'),
+  progressFill: document.getElementById('progressFill'), track: document.getElementById('progressTrack'),
+  currentTime: document.getElementById('currentTime'), totalTime: document.getElementById('totalTime'),
+  playBtn: document.getElementById('playBtn'),
+  volumeFill: document.getElementById('volumeFill'), volumeTrack: document.getElementById('volumeTrack'), volumeIcon: document.getElementById('volumeIcon'),
+  lyricSection: document.getElementById('lyricSection'), lyricInner: document.getElementById('lyricInner'),
+  collectBtn: document.getElementById('collectBtn'), collectIcon: document.getElementById('collectIcon'),
+  darkIcon: document.getElementById('darkIcon'), startupDarkIcon: document.getElementById('startupDarkIcon'),
+  lyricBtn: document.getElementById('lyricBtn'), coverSection: document.getElementById('coverSection')
+};
+
+// ==================== 主题管理 ====================
+(function initTheme(){
+  const saved = localStorage.getItem('lx_player_dark');
+  if(saved === 'dark' || (!saved && matchMedia('(prefers-color-scheme:dark)').matches)){
+    document.body.classList.add('dark');
+    dom.darkIcon.className = 'fa-solid fa-sun';
+    dom.startupDarkIcon.className = 'fa-solid fa-sun';
+  }
+})();
+function toggleDarkMode(){
+  const d = document.body.classList.toggle('dark');
+  localStorage.setItem('lx_player_dark', d ? 'dark' : 'light');
+  const cls = d ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
+  dom.darkIcon.className = cls; dom.startupDarkIcon.className = cls;
+}
+
+// ==================== 页面切换 ====================
+function showPlayer() {
+  dom.startup.classList.add('hidden');
+  setTimeout(() => {
+    dom.player.style.opacity = '1';
+    dom.player.style.visibility = 'visible';
+    dom.player.style.pointerEvents = 'auto';
+  }, 300);
+}
+function showStartup() {
+  dom.player.style.opacity = '0';
+  dom.player.style.visibility = 'hidden';
+  dom.player.style.pointerEvents = 'none';
+  setTimeout(() => { dom.startup.classList.remove('hidden'); }, 300);
+}
+
+// ==================== 搜索与播放模式逻辑 ====================
+// 搜索入口：在控制区正中间最右侧的小按钮
+// ==================== 搜索与点歌逻辑 ====================
+function openSearch() {
+  document.getElementById('searchModal').classList.add('show');
+  setTimeout(() => document.getElementById('searchInput').focus(), 100);
+}
+
+function closeSearch() { 
+  document.getElementById('searchModal').classList.remove('show'); 
+}
+
+// 【核心修复】：创建一个隐藏的 iframe 来无痕唤起桌面端，防止浏览器切断当前页面的 API 连接
+function invokeScheme(url) {
+  let iframe = document.getElementById('scheme-invoker');
+  if (!iframe) {
+    iframe = document.createElement('iframe');
+    iframe.id = 'scheme-invoker';
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
+  }
+  iframe.src = url; // 利用 iframe 发送指令，当前主页面的生命周期完全不受影响
+}
+
+// 按钮点击执行
+function executeAction(type) {
+  const kw = document.getElementById('searchInput').value.trim();
+  if (!kw) return showToast('请输入歌曲信息');
+  
+  if (type === 'searchPlay') {
+    // 唤起直接播放
+    invokeScheme(`lxmusic://music/searchPlay/${encodeURIComponent(kw)}`);
+    showToast(`正在为您点播: ${kw}`);
+  } else {
+    // 仅在桌面端打开搜索页
+    invokeScheme(`lxmusic://music/search/${encodeURIComponent(kw)}`);
+    showToast('已在桌面端打开搜索界面');
+  }
+  
+  closeSearch();
+  document.getElementById('searchInput').value = '';
+}
+
+// 回车键默认触发“直接播放”
+function handleSearch(e) {
+  if (e.key === 'Enter') {
+    executeAction('searchPlay');
+  }
+}
+
+// 播放模式切换 (目前官方 API 不提供修改，仅做 UI 展示并给出提示)
+function togglePlayMode() {
+  state.playModeIdx = (state.playModeIdx + 1) % playModes.length;
+  const mode = playModes[state.playModeIdx];
+  const icon = document.getElementById('playModeIcon');
+  
+  if (mode === 'list-loop') icon.className = 'fa-solid fa-repeat';
+  else if (mode === 'random') icon.className = 'fa-solid fa-shuffle';
+  else if (mode === 'single-loop') icon.className = 'fa-solid fa-arrow-rotate-right';
+
+  const text = mode === 'list-loop' ? '列表循环' : (mode === 'random' ? '随机播放' : '单曲循环');
+  // 提示用户 API 目前缺失的情况
+  showToast(`${text} (需等待官方 API 支持)`);
+}
+
+// ==================== 连接逻辑 ====================
+async function toggleConnection(){
+  if(state.connecting) return;
+  const port = parseInt(dom.portInput.value) || 23330;
+  state.apiBase = `http://127.0.0.1:${port}`;
+  state.connecting = true; updateAllTexts();
+  
+  try {
+    const r = await fetch(`${state.apiBase}/status?filter=status`, { signal: AbortSignal.timeout(3000) });
+    if(!r.ok) throw Error('API error');
+    state.connected = true; state.connecting = false;
+    localStorage.setItem('lx_api_port', port);
+    updateAllTexts(); showPlayer(); showToast('已成功连接桌面端引擎');
+    startPoll(); connectSSE();
+  } catch(e) {
+    state.connecting = false; updateAllTexts();
+    showToast(`${lang==='zh'?'连接失败':'Connection failed'}: ${e.message}`);
+  }
+}
+function disconnect(){
+  state.connected = false;
+  if(eventSource) { eventSource.close(); eventSource = null; }
+  if(pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  resetUI(); showStartup();
+}
+
+// ==================== 引擎通讯 ====================
+function connectSSE(){
+  if(eventSource) eventSource.close();
+  try{
+    eventSource = new EventSource(`${state.apiBase}/subscribe-player-status`);['status','name','singer','duration','progress','picUrl','lyricLineText','collect','volume','mute'].forEach(ev => {
+      eventSource.addEventListener(ev, e => handleData(ev, e.data.replace(/^"|"$/g,'')));
+    });
+    eventSource.onerror = () => { eventSource.close(); eventSource = null; };
+  }catch(e){ eventSource = null; }
+}
+
+function startPoll(){
+  if(pollTimer) clearInterval(pollTimer);
+  const poll = async () => {
+    if(!state.connected || state.isSeeking) return;
+    try{
+      const r = await fetch(`${state.apiBase}/status?filter=status,name,singer,duration,progress,picUrl,lyricLineText,collect,volume,mute`, {signal: AbortSignal.timeout(2000)});
+      if(!r.ok) return;
+      const d = await r.json();
+      if(d.status) handleData('status', d.status);
+      if(d.name !== undefined) handleData('name', d.name);
+      if(d.singer !== undefined) handleData('singer', d.singer);
+      if(d.duration !== undefined) handleData('duration', d.duration);
+      if(d.progress !== undefined) handleData('progress', d.progress);
+      if(d.picUrl !== undefined) handleData('picUrl', d.picUrl);
+      if(d.lyricLineText !== undefined) handleData('lyricLineText', d.lyricLineText);
+      if(d.collect !== undefined) handleData('collect', String(d.collect));
+      if(d.volume !== undefined) handleData('volume', d.volume);
+      if(d.mute !== undefined) handleData('mute', String(d.mute));
+    }catch(e){}
+  };
+  poll(); pollTimer = setInterval(poll, 1000);
+}
+
+function handleData(key, val) {
+  switch(key){
+    case 'status': state.playing = (val === 'playing'); updatePlayBtn(); break;
+    case 'name': state.songName = val; dom.songName.textContent = val || t('notPlaying'); updateMediaSession(); break;
+    case 'singer': state.artist = val; dom.songArtist.textContent = val || t('unknownArtist'); updateMediaSession(); break;
+    case 'duration': state.duration = parseFloat(val); dom.totalTime.textContent = fmt(state.duration); break;
+    case 'progress': state.currentTime = parseFloat(val); if(!state.isSeeking) updProgress(); updLyric(); break;
+    case 'picUrl': if(state.picUrl !== val) { state.picUrl = val; updArt(); updateMediaSession(); } break;
+    case 'lyricLineText': if(val !== state.lyricRaw){ state.lyricRaw = val; updLyricDisplay(); } break;
+    case 'collect': state.collected = (val === 'true'); updCollect(); break;
+    case 'volume': state.volume = parseInt(val); updVol(); break;
+    case 'mute': state.mute = (val === 'true'); updVolIcon(); break;
+  }
+}
+
+// ==================== UI 渲染引擎 ====================
+function updatePlayBtn(){ dom.playBtn.innerHTML = state.playing ? '<i class="fa-solid fa-pause"></i>' : '<i class="fa-solid fa-play" style="margin-left:3px"></i>'; }
+function updProgress(){
+  if(state.duration > 0) dom.progressFill.style.width = Math.min((state.currentTime/state.duration)*100, 100) + '%';
+  else dom.progressFill.style.width = '0%';
+  dom.currentTime.textContent = fmt(state.currentTime);
+}
+function updVol(){ dom.volumeFill.style.width = state.volume + '%'; updVolIcon(); }
+function updVolIcon(){
+  if(state.mute || state.volume === 0) dom.volumeIcon.className = 'fa-solid fa-volume-xmark';
+  else if(state.volume < 50) dom.volumeIcon.className = 'fa-solid fa-volume-low';
+  else dom.volumeIcon.className = 'fa-solid fa-volume-high';
+}
+function updArt(){
+  if(state.picUrl){
+    dom.albumArt.src = state.picUrl; dom.albumArt.style.opacity = '1';
+    dom.miniCover.src = state.picUrl; dom.miniCover.style.opacity = '1';
+    dom.placeholder.style.opacity = '0'; dom.bgBlur.style.backgroundImage = `url(${state.picUrl})`;
+  } else {
+    dom.albumArt.style.opacity = '0'; dom.miniCover.style.opacity = '0';
+    dom.placeholder.style.opacity = '1'; dom.bgBlur.style.backgroundImage = 'none';
+  }
+}
+function updCollect(){
+  if(state.collected){ dom.collectIcon.className = 'fa-solid fa-heart'; dom.collectBtn.classList.add('collected'); }
+  else{ dom.collectIcon.className = 'fa-regular fa-heart'; dom.collectBtn.classList.remove('collected'); }
+}
+
+// === 核心：绝对居中平滑歌词滚动算法 ===
+function updLyricDisplay(){
+  if(!state.lyricRaw){ 
+    dom.lyricInner.innerHTML = `<div style="height: 35vh; flex-shrink: 0;"></div><div class="lyric-line active" id="lyricPlaceholder">${state.connected ? t('noLyric') : t('lyricHint')}</div><div style="height: 60vh; flex-shrink: 0;"></div>`; 
+    return; 
+  }
+  const lines = parseLRC(state.lyricRaw);
+  if(!lines.length){ 
+    dom.lyricInner.innerHTML = `<div style="height: 35vh; flex-shrink: 0;"></div><div class="lyric-line active">${esc(state.lyricRaw)}</div><div style="height: 60vh; flex-shrink: 0;"></div>`; 
+    return; 
+  }
+  
+  // 上方 35vh 实占位，下方 60vh，让高亮行位于中上部
+  dom.lyricInner.innerHTML = '<div style="height: 35vh; flex-shrink: 0;"></div>' + 
+    lines.map((l,i) => `<div class="lyric-line" data-t="${l.time}" data-i="${i}">${esc(l.text)}</div>`).join('') + 
+    '<div style="height: 60vh; flex-shrink: 0;"></div>';
+  state.lastLyricIdx = -1; updLyric();
+}
+
+function parseLRC(t){
+  const lines =[], re = /\[(\d{2}):(\d{2}(?:\.\d+)?)\](.*)/g; let m;
+  while((m = re.exec(t)) !== null){
+    const s = parseInt(m[1])*60 + parseFloat(m[2]), txt = m[3].trim();
+    if(txt) lines.push({time: s, text: txt});
+  }
+  return lines.sort((a,b) => a.time - b.time);
+}
+
+function updLyric(){
+  const ls = dom.lyricInner.querySelectorAll('.lyric-line[data-t]');
+  if(!ls.length) return;
+  let idx = -1;
+  const current = state.currentTime;
+  ls.forEach((l,i) => { if(current >= parseFloat(l.dataset.t) - 0.3) idx = i; });
+  
+  if(idx !== state.lastLyricIdx){
+    ls.forEach(l => l.classList.remove('active'));
+    if(idx >= 0){
+      const el = ls[idx];
+      el.classList.add('active');
+      
+      // 采用 offsetTop 减半屏高度实现极其精确的居中
+      const container = dom.lyricSection;
+      const targetScroll = el.offsetTop - (container.clientHeight * 0.35) + (el.clientHeight / 2);
+      container.scrollTo({ top: targetScroll, behavior: 'smooth' });
+    }
+    state.lastLyricIdx = idx;
+  }
+}
+
+function resetUI(){
+  state.playing=false; state.currentTime=0; state.duration=0; state.songName=''; state.artist=''; state.picUrl=''; state.lyricRaw=''; state.collected=false;
+  dom.songName.textContent = t('notPlaying'); dom.songArtist.textContent = '--';
+  dom.albumArt.style.opacity = '0'; dom.miniCover.style.opacity = '0'; dom.placeholder.style.opacity = '1';
+  dom.bgBlur.style.backgroundImage = 'none';
+  dom.progressFill.style.width = '0%'; dom.currentTime.textContent = '00:00'; dom.totalTime.textContent = '00:00';
+  dom.lyricInner.innerHTML = `<div style="height:35vh"></div><div class="lyric-line active" id="lyricPlaceholder">${t('lyricHint')}</div><div style="height:60vh"></div>`;
+  updatePlayBtn();
+}
+
+// ==================== 沉浸式歌词视图切换 ====================
+function toggleLyricView() {
+  state.showLyrics = !state.showLyrics;
+  if(state.showLyrics) {
+    dom.lyricBtn.classList.add('active');
+    document.body.classList.add('immersion'); // 启动全局反差色遮罩
+    dom.lyricSection.style.display = 'block';
+    setTimeout(() => updLyric(), 50);
+  } else {
+    dom.lyricBtn.classList.remove('active');
+    document.body.classList.remove('immersion');
+    dom.lyricSection.style.display = 'none';
+  }
+}
+
+// ==================== 系统级交互 ====================
+function updateMediaSession() {
+  if ('mediaSession' in navigator) {
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: state.songName || t('notPlaying'),
+      artist: state.artist || t('unknownArtist'),
+      artwork: state.picUrl ?[{ src: state.picUrl, sizes: '512x512', type: 'image/jpeg' }] :[]
+    });
+  }
+}
+if ('mediaSession' in navigator) {
+  navigator.mediaSession.setActionHandler('play', () => { sendCmd('play'); state.playing=true; updatePlayBtn(); });
+  navigator.mediaSession.setActionHandler('pause', () => { sendCmd('pause'); state.playing=false; updatePlayBtn(); });
+  navigator.mediaSession.setActionHandler('previoustrack', () => sendCmd('skip-prev'));
+  navigator.mediaSession.setActionHandler('nexttrack', () => sendCmd('skip-next'));
+}
+
+// 自定义丝滑滑块拖拽
+function startSeek(e, type){
+  e.preventDefault();
+  const isProgress = (type === 'progress');
+  if(isProgress) state.isSeeking = true;
+  
+  const track = isProgress ? dom.track : dom.volumeTrack;
+  const fill = isProgress ? dom.progressFill : dom.volumeFill;
+  const rect = track.getBoundingClientRect();
+  
+  const updatePos = (cX) => {
+    let p = Math.max(0, Math.min(1, (cX - rect.left) / rect.width));
+    fill.style.width = (p * 100) + '%';
+    if(isProgress) dom.currentTime.textContent = fmt(p * state.duration);
+    else {
+      state.volume = Math.round(p * 100);
+      updVolIcon(); sendCmd('volume', { volume: state.volume });
+    }
+  };
+  
+  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+  updatePos(clientX);
+  
+  const mv = ev => updatePos(ev.touches ? ev.touches[0].clientX : ev.clientX);
+  const end = ev => {
+    document.removeEventListener('mousemove', mv); document.removeEventListener('mouseup', end);
+    document.removeEventListener('touchmove', mv); document.removeEventListener('touchend', end);
+    if(isProgress) {
+      const cX = ev.changedTouches ? ev.changedTouches[0].clientX : ev.clientX;
+      const p = Math.max(0, Math.min(1, (cX - rect.left) / rect.width));
+      const offset = Math.round(p * state.duration);
+      sendCmd('seek', { offset });
+      state.currentTime = offset; state.isSeeking = false; updLyric();
+    }
+  };
+  document.addEventListener('mousemove', mv); document.addEventListener('mouseup', end);
+  document.addEventListener('touchmove', mv, {passive: false}); document.addEventListener('touchend', end);
+}
+
+// 引擎命令下发
+async function sendCmd(cmd, params={}){
+  if(!state.connected) return;
+  try{
+    const q = new URLSearchParams(params).toString();
+    await fetch(`${state.apiBase}/${cmd}${q ? '?'+q : ''}`, { method: 'GET', signal: AbortSignal.timeout(2000) });
+  }catch(e){}
+}
+function togglePlay(){ sendCmd(state.playing ? 'pause' : 'play'); state.playing = !state.playing; updatePlayBtn(); }
+function toggleMute(){ state.mute = !state.mute; sendCmd('mute', { mute: state.mute }); updVolIcon(); }
+function toggleCollect(){ sendCmd(state.collected ? 'uncollect' : 'collect'); state.collected = !state.collected; updCollect(); }
+
+// 纯函数工具
+function fmt(s){ if(!s || isNaN(s)) return '00:00'; const m = Math.floor(s/60), sec = Math.floor(s%60); return String(m).padStart(2,'0') + ':' + String(sec).padStart(2,'0'); }
+function esc(t){ const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
+
+// 快捷键全局绑定
+document.addEventListener('keydown', e => {
+  if(e.target.tagName === 'INPUT' || !state.connected) return;
+  switch(e.code){
+    case 'Space': e.preventDefault(); togglePlay(); break;
+    case 'ArrowLeft': e.preventDefault(); sendCmd('seek', {offset: Math.max(0, state.currentTime - 5)}); break;
+    case 'ArrowRight': e.preventDefault(); sendCmd('seek', {offset: Math.min(state.duration, state.currentTime + 5)}); break;
+    case 'ArrowUp': e.preventDefault(); state.volume=Math.min(100, state.volume+5); sendCmd('volume', {volume: state.volume}); updVol(); break;
+    case 'ArrowDown': e.preventDefault(); state.volume=Math.max(0, state.volume-5); sendCmd('volume', {volume: state.volume}); updVol(); break;
+  }
+});
+
+// ==================== MCP / 主程序 AI 集成 ====================
+let ws = null;
+let MY_EXT_ID = '';
+
+// 获取当前扩展ID
+function getExtId() {
+  try {
+    const path = window.location.pathname;
+    const match = path.match(/\/extensions\/([^\/]+)/);
+    if (match) {
+      MY_EXT_ID = match[1];
+    } else {
+      MY_EXT_ID = 'lx-music-ext'; // 修复点1：必须给全局变量赋值
+    }
+  } catch(e) {
+    MY_EXT_ID = 'lx-music-ext';
+  }
+  return MY_EXT_ID;
+}
+
+// 初始化 WebSocket 并注册工具
+function initWS() {
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  // 如果页面是以独立扩展的形式在主程序中运行，连接到主程序的 /ws
+  ws = new WebSocket(`${proto}//${location.host}/ws`);
+  
+  ws.onopen = () => {
+    const extId = getExtId();
+    console.log('✅ 主程序 WebSocket 已连接, 注册 MCP 扩展:', extId);
+    
+    // 向 AI 注册播放器相关的操作工具
+    ws.send(JSON.stringify({
+      type: 'register_node_extension_mcp',
+      data: {
+        ext_id: extId,
+        tools:[
+          {
+            name: `${extId}_play_pause`,
+            description: '切换当前音乐的播放/暂停状态',
+            parameters: { type: 'object', properties: {} }
+          },
+          {
+            name: `${extId}_next_song`,
+            description: '播放下一首歌曲',
+            parameters: { type: 'object', properties: {} }
+          },
+          {
+            name: `${extId}_prev_song`,
+            description: '播放上一首歌曲',
+            parameters: { type: 'object', properties: {} }
+          },
+          {
+            name: `${extId}_set_volume`,
+            description: '设置播放器音量大小',
+            parameters: { 
+              type: 'object', 
+              properties: { 
+                volume: { type: 'number', description: '音量值 (范围: 0-100)' } 
+              },
+              required:['volume']
+            }
+          },
+          {
+            name: `${extId}_search_and_play`,
+            description: '搜索并直接播放指定的歌曲',
+            parameters: { 
+              type: 'object', 
+              properties: { 
+                keyword: { type: 'string', description: '需要播放的歌曲名或歌手名（例如: 晴天-周杰伦）' } 
+              },
+              required:['keyword']
+            }
+          }
+        ]
+      }
+    }));
+  };
+  
+  ws.onmessage = e => {
+    try {
+      const d = JSON.parse(e.data);
+      // 监听 AI 传来的工具调用请求
+      if (d.type === 'call_mcp_tool') {
+        handleMcpCall(d.data);
+      }
+    } catch(err) {
+      console.error('WebSocket 解析失败:', err);
+    }
+  };
+  
+  ws.onclose = () => {
+    console.log('主程序 WebSocket 断开，5秒后重连');
+    setTimeout(initWS, 5000);
+  };
+}
+
+// 处理 AI 工具回调逻辑
+async function handleMcpCall(data) {
+  const { ext_id, tool_name, tool_params, call_id } = data;
+  
+  // 仅处理属于自己的指令 (修复点2：增加兜底判断)
+  if (ext_id !== MY_EXT_ID && !tool_name.includes(MY_EXT_ID)) {
+    console.log(`❌ 忽略: 发给 ${ext_id}, 我是 ${MY_EXT_ID}`);
+    return;
+  }
+  console.log(`🤖 收到 AI 工具调用: ${tool_name}`, tool_params);
+  
+  let resultStr = 'success';
+  
+  try {
+    // 修复点3：兼容 tool_params 是 JSON 字符串的情况
+    let params = tool_params;
+    if (typeof params === 'string') {
+      try { params = JSON.parse(params); } catch(e) {}
+    }
+
+    if (tool_name.includes('_play_pause')) {
+      togglePlay(); // 复用页面原本的切换函数
+      resultStr = state.playing ? '已暂停音乐' : '已继续播放音乐';
+    } 
+    else if (tool_name.includes('_next_song')) {
+      sendCmd('skip-next');
+      resultStr = '已为您切换到下一首';
+    } 
+    else if (tool_name.includes('_prev_song')) {
+      sendCmd('skip-prev');
+      resultStr = '已为您切换到上一首';
+    } 
+    else if (tool_name.includes('_set_volume')) {
+      const vol = Math.max(0, Math.min(100, params.volume || 50));
+      state.volume = vol;
+      sendCmd('volume', { volume: state.volume });
+      updVol(); // 更新页面上的音量条UI
+      resultStr = `已将音量调整为 ${vol}%`;
+    } 
+    else if (tool_name.includes('_search_and_play')) {
+      const kw = params.keyword;
+      if (kw) {
+        // 复用隐式 iframe 点歌逻辑唤起桌面端
+        invokeScheme(`lxmusic://music/searchPlay/${encodeURIComponent(kw)}`);
+        showToast(`🤖 AI 正在为您点播: ${kw}`);
+        resultStr = `已成功下发播放指令，正在为您搜索并播放: ${kw}`;
+      } else {
+        resultStr = '执行失败：没有提供需要搜索的歌曲名';
+      }
+    } 
+    else {
+      resultStr = `未知的指令: ${tool_name}`;
+    }
+  } catch (e) {
+    resultStr = `执行异常: ${e.message}`;
+    console.error('MCP 工具执行报错:', e);
+  }
+  
+  // 将执行结果告诉主程序（重要！如果不返回结果就会超时）
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({
+      type: 'mcp_tool_result',
+      data: { call_id: call_id, result: resultStr }
+    }));
+  }
+}
+// ==================== 覆盖原有的生命周期函数 ====================
+
+// 初始化启动
+(function init(){
+  const p = localStorage.getItem('lx_api_port');
+  if(p) dom.portInput.value = p;
+  updateAllTexts();
+  if (window.innerWidth <= 768) { toggleLyricView(); }
+  
+  // 🔥 新增：初始化并连接主程序
+  initWS();
+})();
+
+// 页面卸载前处理
+window.addEventListener('beforeunload', () => { 
+  // 🔥 新增：从 AI 取消注册工具，防止关闭后还能看到该工具
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({
+      type: 'unregister_node_extension_mcp',
+      data: { ext_id: MY_EXT_ID }
+    }));
+  }
+  if(state.connected) disconnect(); 
+});
+</script>
+</body>
+</html>
