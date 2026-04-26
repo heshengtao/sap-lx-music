@@ -886,6 +886,11 @@ function initWS() {
               },
               required:['keyword']
             }
+          },
+          {
+            name: `${extId}_toggle_collect`,
+            description: '将当前正在播放的歌曲收藏到喜欢歌单，或者从喜欢歌单中取消收藏',
+            parameters: { type: 'object', properties: {} }
           }
         ]
       }
@@ -960,6 +965,17 @@ async function handleMcpCall(data) {
         resultStr = '执行失败：没有提供需要搜索的歌曲名';
       }
     } 
+    else if (tool_name.includes('_toggle_collect')) {
+      if (!state.songName) {
+        resultStr = '执行失败：当前没有正在播放的音乐';
+      } else {
+        toggleCollect(); // 复用页面原本的红心收藏按钮逻辑
+        resultStr = state.collected 
+            ? `已将《${state.songName}》加入喜欢歌单` 
+            : `已将《${state.songName}》从喜欢歌单中移除`;
+        showToast(`🤖 AI: ${resultStr}`);
+      }
+    }
     else {
       resultStr = `未知的指令: ${tool_name}`;
     }
