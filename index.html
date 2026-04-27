@@ -122,10 +122,30 @@ body.immersion .glass-btn { color: #ffffff; background: rgba(255,255,255,0.15); 
   color: var(--view-text-main); transition: all 0.5s;
 }
 
-/* 封面区块排版优化 */
-#coverSection {
-  flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
-  transition: all 0.5s cubic-bezier(0.25, 0.1, 0.25, 1); max-width: 360px; margin: 0 auto;
+/* 封面区域优化：统一有无歌词时的尺寸 */
+#coverSection, 
+body.immersion #coverSection { 
+  flex: 0 0 auto; 
+  /* 统一最大宽度与比例宽度，确保切换时大小不跳变 */
+  max-width: 360px !important; 
+  width: 65vw !important;
+  
+  /* 统一居中对齐 */
+  margin: 0 auto !important; 
+  align-items: center !important; 
+  
+  /* 间距微调 */
+  margin-top: 10px !important;
+  margin-bottom: 15px !important;
+  transition: all 0.3s ease;
+}
+
+/* 针对封面容器在两种模式下的投影统一 */
+#artworkWrapper,
+body.immersion #artworkWrapper {
+  width: 100%;
+  aspect-ratio: 1;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.2) !important;
 }
 body.immersion #coverSection { align-items: flex-end; max-width: 450px; margin: 0; }
 
