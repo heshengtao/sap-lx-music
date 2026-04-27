@@ -122,10 +122,30 @@ body.immersion .glass-btn { color: #ffffff; background: rgba(255,255,255,0.15); 
   color: var(--view-text-main); transition: all 0.5s;
 }
 
-/* 封面区块排版优化 */
-#coverSection {
-  flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
-  transition: all 0.5s cubic-bezier(0.25, 0.1, 0.25, 1); max-width: 360px; margin: 0 auto;
+/* 封面区域优化：统一有无歌词时的尺寸 */
+#coverSection, 
+body.immersion #coverSection { 
+  flex: 0 0 auto; 
+  /* 统一最大宽度与比例宽度，确保切换时大小不跳变 */
+  max-width: 360px !important; 
+  width: 65vw !important;
+  
+  /* 统一居中对齐 */
+  margin: 0 auto !important; 
+  align-items: center !important; 
+  
+  /* 间距微调 */
+  margin-top: 10px !important;
+  margin-bottom: 15px !important;
+  transition: all 0.3s ease;
+}
+
+/* 针对封面容器在两种模式下的投影统一 */
+#artworkWrapper,
+body.immersion #artworkWrapper {
+  width: 100%;
+  aspect-ratio: 1;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.2) !important;
 }
 body.immersion #coverSection { align-items: flex-end; max-width: 450px; margin: 0; }
 
@@ -309,6 +329,168 @@ body.immersion #artworkWrapper { box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
   .controls-row { gap: 40px; margin-bottom: 12px; }
   .bar-right { display: none; }
 }
+
+/* ========== 极简模式 (Compact Mode) 核心逻辑 ========== */
+body.compact {
+  background: transparent !important;
+}
+
+/* 1. 处理未连接时的“白屏/显示不全”问题 */
+body.compact #startupScreen {
+  background: var(--theme-bar);
+  padding: 0;
+  justify-content: center;
+}
+body.compact .startup-card {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  border-radius: 12px;
+  padding: 0 15px;
+  display: flex;
+  flex-direction: row; /* 连接界面也横过来 */
+  align-items: center;
+  gap: 15px;
+  box-shadow: none;
+}
+/* 隐藏连接界面多余的装饰 */
+body.compact .startup-logo, 
+body.compact .startup-desc, 
+body.compact .startup-title,
+body.compact #startupScreen .glass-btn { 
+  display: none !important; 
+}
+body.compact .startup-card .input-group {
+  margin-bottom: 0;
+  flex: 1;
+}
+body.compact .startup-card input {
+  margin-bottom: 0;
+  padding: 8px;
+  font-size: 13px;
+}
+body.compact .startup-card .btn-primary {
+  width: auto;
+  padding: 8px 20px;
+  font-size: 13px;
+}
+
+/* 2. 播放界面的横向排布 */
+body.compact #playerScreen {
+  background: transparent;
+}
+body.compact #topBar, body.compact #mainView, body.compact #bgBlur, body.compact #bgMask {
+  display: none !important;
+}
+
+body.compact #bottomBar {
+  position: fixed;
+  inset: 0;
+  height: 100% !important;
+  width: 100% !important;
+  display: flex;
+  flex-direction: row !important; /* 强制横向 */
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 15px;
+  border: none;
+  background: var(--theme-bar);
+  border-radius: 12px;
+}
+
+/* 歌曲信息区 */
+body.compact .bar-left {
+  width: auto;
+  flex: 1;
+  min-width: 0;
+  margin-right: 15px;
+}
+body.compact .mini-cover {
+  width: 45px;
+  height: 45px;
+}
+body.compact .song-info {
+  max-width: 150px;
+}
+
+/* 控制按钮区 */
+body.compact .bar-center {
+  width: auto;
+  flex: 0 0 auto;
+  max-width: none;
+  margin: 0;
+}
+body.compact .controls-row {
+  margin-bottom: 0;
+  gap: 18px; /* 按钮间距 */
+}
+
+/* 隐藏紧凑模式下碍事的元素 */
+body.compact .progress-container,
+body.compact .bar-right,
+body.compact .heart-btn,
+body.compact .ctrl-btn.minor {
+  display: none !important;
+}
+
+/* 进度条变成底部一条 2px 的细线，不占用空间 */
+body.compact #progressTrack {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  padding: 0;
+}
+body.compact .slider-track { height: 2px; }
+
+/* 1. 窗口拖拽逻辑 */
+body.compact {
+  /* 让整个身体变成可拖拽区域 */
+  -webkit-app-region: drag; 
+}
+
+/* 2. 排除逻辑：所有的交互元素必须禁止拖拽，否则无法点击 */
+body.compact button,
+body.compact input,
+body.compact .custom-slider,
+body.compact .compact-close-btn {
+  -webkit-app-region: no-drag;
+}
+
+/* 3. 关闭按钮样式 */
+.compact-close-btn {
+  display: none; /* 默认隐藏，仅在 compact 模式显示 */
+}
+
+body.compact .compact-close-btn {
+  display: flex;
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 20px;
+  height: 20px;
+  background: rgb(255, 57, 57);
+  border: none;
+  border-radius: 50%;
+  color:white;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  cursor: pointer;
+  transition: 0.2s;
+  z-index: 100;
+}
+
+body.compact .compact-close-btn:hover {
+  background: #ec4141; /* 鼠标悬停变红 */
+  color: white;
+}
+
+/* 悬停时才显示关闭按钮，保持平时极其简洁 */
+body.compact #bottomBar:hover .compact-close-btn {
+  opacity: 1;
+}
 </style>
 </head>
 <body>
@@ -358,6 +540,10 @@ body.immersion #artworkWrapper { box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
       <input type="number" id="portInput" value="23330" min="1" max="65535" placeholder="桌面端 API 端口号" onkeypress="if(event.key==='Enter') toggleConnection()">
     </div>
     <button class="btn-primary" id="connectBtn" onclick="toggleConnection()">连接播放器</button>
+
+    <button class="compact-close-btn" onclick="closeWindow()" title="关闭窗口">
+      <i class="fa-solid fa-xmark"></i>
+    </button>
   </div>
 </div>
 
@@ -428,6 +614,10 @@ body.immersion #artworkWrapper { box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
         <div class="slider-track"><div class="slider-fill" id="volumeFill" style="width:50%"><div class="slider-thumb"></div></div></div>
       </div>
     </div>
+
+    <button class="compact-close-btn" onclick="closeWindow()" title="关闭窗口">
+      <i class="fa-solid fa-xmark"></i>
+    </button>
   </div>
 </div>
 
@@ -1041,18 +1231,43 @@ async function handleMcpCall(data) {
     }));
   }
 }
+
+function closeWindow() {
+  // 调用窗口自带的关闭方法
+  window.close();
+}
+
 // ==================== 覆盖原有的生命周期函数 ====================
 
 // 初始化启动
 (function init(){
   const p = localStorage.getItem('lx_api_port');
   if(p) dom.portInput.value = p;
+
+  // 核心：检测高度切换模式
+  function checkCompactMode() {
+    // 只要高度小于 200，就进入极简横向模式
+    if (window.innerHeight < 200) {
+      document.body.classList.add('compact');
+      // 这里的逻辑可以保证无论在哪个界面（连接中或播放中），都应用 compact 样式
+    } else {
+      document.body.classList.remove('compact');
+    }
+  }
+
+  // 立即执行一次
+  checkCompactMode();
+  // 监听窗口缩放
+  window.addEventListener('resize', checkCompactMode);
+
   updateAllTexts();
-  if (window.innerWidth <= 768) { toggleLyricView(); }
+  if (window.innerWidth <= 768 && !document.body.classList.contains('compact')) { 
+    toggleLyricView(); 
+  }
   
-  // 🔥 新增：初始化并连接主程序
   initWS();
 })();
+
 
 // 页面卸载前处理
 window.addEventListener('beforeunload', () => { 

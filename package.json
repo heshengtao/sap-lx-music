@@ -7,8 +7,8 @@
   "backupRepository": "https://gitee.com/heshengtao/sap-lx-music",
   "category": "Utility",
   "systemPrompt": "",
-  "transparent": false,
-  "width": 420,
-  "height": 720,
+  "width": 280,
+  "height": 80,
+  "transparent": true,
   "enableVrmWindowSize": false
 }
