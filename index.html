@@ -625,6 +625,10 @@ body.compact #bottomBar:hover .compact-close-btn {
 // ==================== 自定义 Toast ====================
 let toastTimer = null;
 function showToast(msg) {
+  // --- 新增判断：如果是压缩模式，直接跳过提示 ---
+  if (document.body.classList.contains('compact')) return;
+  // ------------------------------------------
+
   const toast = document.getElementById('globalToast');
   toast.textContent = msg;
   toast.classList.add('show');
