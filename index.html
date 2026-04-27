@@ -245,17 +245,66 @@ body.immersion #artworkWrapper { box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
 #searchInput:focus { border-color: var(--accent); }
 .search-tip { margin-top: 16px; font-size: 13px; color: var(--theme-text-sub); }
 
-/* ========== 响应式布局 (Mobile & Tablet 适配) ========== */
-@media (max-width: 900px) { /* 断点扩宽至900px，适配大多数平板竖屏和所有手机 */
-  #mainView { padding: 60px 5vw 0; gap: 0; flex-direction: column; }
-  #coverSection { max-width: 320px; align-items: center !important; flex: none; margin-bottom: 20px !important; }
-  #lyricSection { flex: 1; max-width: 100%; }
+/* ========== 响应式布局 (针对移动端/平板的细节优化) ========== */
+@media (max-width: 900px) {
+  #mainView { 
+    /* 增加顶部边距，让封面整体下移 */
+    padding: 60px 5vw 0; 
+    /* 减少封面盒歌词盒之间的物理间距 */
+    gap: 10px; 
+    flex-direction: column; 
+    justify-content: flex-start;
+    overflow: hidden;
+  }
+
+  /* 封面区域优化 */
+  #coverSection { 
+    flex: 0 0 auto; 
+    max-width: 240px; /* 适度调大一点封面，更显眼 */
+    width: 55vw;
+    margin: 0 auto !important; 
+    align-items: center !important; 
+    /* 给封面下方留一点点空隙，但不宜过多 */
+    margin-bottom: 10px !important;
+  }
+
+  /* 歌词区域优化 */
+  #lyricSection { 
+    display: block !important; 
+    flex: 1; 
+    max-width: 100%; 
+    width: 100%;
+    /* 调整遮罩，让歌词显示区域顶部更贴近封面 */
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 8%, black 85%, transparent 100%);
+    mask-image: linear-gradient(to bottom, transparent 0%, black 8%, black 85%, transparent 100%);
+  }
+
+  /* 【关键点】大幅缩小歌词顶部的透明占位，消除封面与第一行歌词间的巨大鸿沟 */
+  #lyricInner div:first-child {
+    height: 5vh !important; /* 从原先的35vh/15vh骤降到5vh */
+  }
   
-  #bottomBar { height: 130px; flex-direction: column; padding: 12px 16px; justify-content: center; gap: 10px; }
+  /* 调整歌词行间距和大小，适应手机纵向排版 */
+  .lyric-line {
+    padding: 10px 20px;
+    font-size: 15px;
+  }
+  .lyric-line.active {
+    padding: 18px 20px;
+    font-size: 22px;
+  }
+
+  /* 底部控制栏保持不变 */
+  #bottomBar { 
+    height: 130px; 
+    flex-direction: column; 
+    padding: 12px 16px; 
+    justify-content: center; 
+    gap: 10px; 
+    flex-shrink: 0;
+  }
   
-  /* 左侧歌曲信息整体水平居中 */
   .bar-left { width: 100%; justify-content: center; } 
-  
   .bar-center { width: 100%; max-width: 100%; }
   .controls-row { gap: 40px; margin-bottom: 12px; }
   .bar-right { display: none; }
