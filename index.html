@@ -336,8 +336,14 @@ body.compact {
 }
 
 /* 1. 处理未连接时的“白屏/显示不全”问题 */
+html.compact, 
+body.compact {
+  background: transparent !important;
+}
+
+/* 1. 处理未连接时的“白屏/显示不全”问题 */
 body.compact #startupScreen {
-  background: var(--theme-bar);
+  background: transparent !important; /* 【核心修改】这里必须是透明，让内部的 card 展现圆角 */
   padding: 0;
   justify-content: center;
 }
@@ -1252,9 +1258,10 @@ function closeWindow() {
   function checkCompactMode() {
     // 只要高度小于 200，就进入极简横向模式
     if (window.innerHeight < 200) {
+      document.documentElement.classList.add('compact'); // 让 html 也加上 class
       document.body.classList.add('compact');
-      // 这里的逻辑可以保证无论在哪个界面（连接中或播放中），都应用 compact 样式
     } else {
+      document.documentElement.classList.remove('compact');
       document.body.classList.remove('compact');
     }
   }
