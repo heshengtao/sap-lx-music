@@ -253,7 +253,7 @@ body.immersion #artworkWrapper { box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
 .modern-btn.danger:hover { background: #ff4d4f; color: white; box-shadow: 0 4px 12px rgba(255, 77, 79, 0.2); }
 .modern-btn.icon-only { padding: 12px; border-radius: 12px; }
 
-/* 现代歌单列表行交互样式 (Spotify/网易云风格) */
+/* 现代歌单列表行交互样式 */
 #pmSongList { flex: 1; overflow-y: auto; text-align: left; margin-top: 10px; padding-right: 5px; }
 .song-item {
   display: flex; justify-content: space-between; align-items: center;
@@ -280,6 +280,7 @@ body.immersion #artworkWrapper { box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
 .song-action-btn.play:hover { color: var(--accent); }
 .song-action-btn.delete:hover { color: #ff4d4f; background: rgba(255, 77, 79, 0.1); }
 
+/* 响应式调整 */
 @media (max-width: 900px) {
   #mainView { padding: 60px 5vw 0; gap: 10px; flex-direction: column; justify-content: flex-start; overflow: hidden; }
   #coverSection { flex: 0 0 auto; max-width: 240px; width: 55vw; margin: 0 auto !important; margin-bottom: 10px !important; }
@@ -294,8 +295,26 @@ body.immersion #artworkWrapper { box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
   .bar-right { display: none; }
 }
 
-body.compact { background: transparent !important; -webkit-app-region: drag; }
+/* ================= 压缩模式下的拖拽支持修复 ================= */
+body.compact { background: transparent !important; }
 html.compact, body.compact #startupScreen { background: transparent !important; padding: 0; justify-content: center; }
+
+/* 1. 明确赋予有实体背景色的容器 drag 属性 */
+body.compact #bottomBar, 
+body.compact #startupScreen {
+  -webkit-app-region: drag;
+}
+
+/* 2. 交互元素绝对取消 drag，防止无法点击 */
+body.compact button, 
+body.compact input, 
+body.compact select,
+body.compact .custom-slider, 
+body.compact .song-action-btn,
+body.compact .compact-close-btn { 
+  -webkit-app-region: no-drag; 
+}
+
 body.compact .startup-card { width: 100%; height: 100%; max-width: none; border-radius: 12px; padding: 0 15px; display: flex; flex-direction: row; align-items: center; gap: 15px; box-shadow: none; }
 body.compact .startup-logo, body.compact .startup-desc, body.compact .startup-title, body.compact #startupScreen .glass-btn { display: none !important; }
 body.compact .startup-card .input-group { margin-bottom: 0; flex: 1; }
@@ -312,7 +331,6 @@ body.compact .controls-row { margin-bottom: 0; gap: 18px; }
 body.compact .progress-container, body.compact .bar-right, body.compact .heart-btn, body.compact .ctrl-btn.minor { display: none !important; }
 body.compact #progressTrack { position: absolute; bottom: 0; left: 0; right: 0; height: 2px; padding: 0; }
 body.compact .slider-track { height: 2px; }
-body.compact button, body.compact input, body.compact .custom-slider, body.compact .compact-close-btn { -webkit-app-region: no-drag; }
 .compact-close-btn { display: none; }
 body.compact .compact-close-btn { display: flex; position: absolute; top: 5px; right: 5px; width: 20px; height: 20px; background: rgb(255, 57, 57); border: none; border-radius: 50%; color:white; align-items: center; justify-content: center; font-size: 10px; cursor: pointer; transition: 0.2s; z-index: 100; }
 body.compact .compact-close-btn:hover { background: #ec4141; color: white; }
@@ -368,7 +386,7 @@ body.compact #bottomBar:hover .compact-close-btn { opacity: 1; }
               <button class="modern-btn default icon-only" onclick="pmCreate()" title="新建歌单"><i class="fa-solid fa-plus"></i></button>
               <button class="modern-btn danger icon-only" onclick="pmDelete()" title="删除选中歌单"><i class="fa-solid fa-trash"></i></button>
               
-              <!-- 极其精致的竖线分割与关闭按钮 -->
+              <!-- 精致竖线分割与关闭按钮 -->
               <div style="width: 1px; height: 20px; background: var(--border); margin: 0 4px;"></div>
               <button class="modern-btn default icon-only" onclick="closePlaylistManager()" title="关闭面板" style="border-radius: 50%;"><i class="fa-solid fa-xmark"></i></button>
           </div>
@@ -565,10 +583,9 @@ function updateAllTexts(){
   }
 }
 
-// ==================== 扩展：本地歌单状态与数据管理 ====================
+// ==================== 扩展：本地歌单接管与上下文管理 ====================
 let localPlaylists = JSON.parse(localStorage.getItem('lx_local_playlists')) || {};
-let activePlaylistName = localStorage.getItem('lx_active_playlist') || "";
-let localPlayIndex = -1; 
+let activePlaylistName = localStorage.getItem('lx_active_playlist') || ""; // 面板选择显示的歌单
 let switchLock = false; 
 
 function initPlaylistState() {
@@ -591,6 +608,22 @@ function savePlaylists() {
       renderPlaylistManager();
   }
   updCollect(); 
+}
+
+// 核心修复：寻找当前正在播放的歌曲实际位于哪一个本地歌单
+function getPlayingPlaylistContext() {
+  // 优先匹配当前面板显示的歌单
+  if (localPlaylists[activePlaylistName]) {
+      let exists = localPlaylists[activePlaylistName].some(s => s.name === state.songName && s.artist === state.artist);
+      if (exists) return activePlaylistName;
+  }
+  // 否则全盘扫描匹配
+  for (let plName in localPlaylists) {
+      if (localPlaylists[plName].some(s => s.name === state.songName && s.artist === state.artist)) {
+          return plName;
+      }
+  }
+  return null;
 }
 
 function createNewPlaylist(name) {
@@ -637,7 +670,6 @@ function confirmDeletePlaylist() {
   closeDeletePlaylistModal();
 }
 
-// 核心优化：支持单次添加与数组批量添加
 function addSongsToPlaylist(plName, songs) {
   if (!localPlaylists[plName]) localPlaylists[plName] =[];
   let added = false;
@@ -652,7 +684,7 @@ function addSongsToPlaylist(plName, songs) {
 }
 
 function addToPlaylist(plName, name, artist) {
-  addSongsToPlaylist(plName, [{ songName: name, artist: artist }]);
+  addSongsToPlaylist(plName,[{ songName: name, artist: artist }]);
 }
 
 function checkCollected() {
@@ -753,34 +785,40 @@ function togglePlayMode() {
   localStorage.setItem('lx_play_mode_idx', state.playModeIdx);
 }
 
-function playNextFromLocal(isManualSkip = false, skipPrev = false) {
-  let list = localPlaylists[activePlaylistName] ||[];
+// 核心重写：完美切歌计算逻辑（支持动态定位）
+function playNextFromLocal(plName, isManualSkip = false, skipPrev = false) {
+  let list = localPlaylists[plName] ||[];
   if (list.length === 0) return;
 
-  if (localPlayIndex === -1 || localPlayIndex >= list.length) { localPlayIndex = 0; }
+  let currentIdx = list.findIndex(s => s.name === state.songName && s.artist === state.artist);
+  let nextIdx = 0;
 
-  if (state.playModeIdx === 0) {
-      localPlayIndex = skipPrev ? (localPlayIndex - 1 + list.length) % list.length : (localPlayIndex + 1) % list.length;
-  } else if (state.playModeIdx === 1) {
-      localPlayIndex = Math.floor(Math.random() * list.length);
-  } else if (state.playModeIdx === 2) {
-      if (isManualSkip) { localPlayIndex = skipPrev ? (localPlayIndex - 1 + list.length) % list.length : (localPlayIndex + 1) % list.length; }
+  if (currentIdx !== -1) {
+      if (state.playModeIdx === 0) { // 列表循环
+          nextIdx = skipPrev ? (currentIdx - 1 + list.length) % list.length : (currentIdx + 1) % list.length;
+      } else if (state.playModeIdx === 1) { // 随机
+          nextIdx = Math.floor(Math.random() * list.length);
+      } else if (state.playModeIdx === 2) { // 单曲
+          nextIdx = isManualSkip ? (skipPrev ? (currentIdx - 1 + list.length) % list.length : (currentIdx + 1) % list.length) : currentIdx;
+      }
+  } else {
+      nextIdx = Math.floor(Math.random() * list.length); // 异常保底随机切一首
   }
 
-  let song = list[localPlayIndex];
+  let song = list[nextIdx];
   let query = `${song.name} - ${song.artist}`;
   invokeScheme(`lxmusic://music/searchPlay/${encodeURIComponent(query)}`);
   showToast(`${lang==='zh'?'扩展已切歌':'Track skipped'}: ${query}`);
 }
 
 function doSkipNext(manual = true) {
-  let list = localPlaylists[activePlaylistName] ||[];
-  if (list.length > 0) { playNextFromLocal(manual, false); } 
+  let plName = getPlayingPlaylistContext();
+  if (plName) { playNextFromLocal(plName, manual, false); } 
   else { sendCmd('skip-next'); }
 }
 function doSkipPrev() {
-  let list = localPlaylists[activePlaylistName] ||[];
-  if (list.length > 0) { playNextFromLocal(true, true); } 
+  let plName = getPlayingPlaylistContext();
+  if (plName) { playNextFromLocal(plName, true, true); } 
   else { sendCmd('skip-prev'); }
 }
 
@@ -887,7 +925,6 @@ function pmAddManual() {
   showToast(lang==='zh'?'歌曲成功收入歌单':'Added to playlist');
 }
 function playSpecificSong(idx) {
-  localPlayIndex = idx;
   let song = localPlaylists[activePlaylistName][idx];
   let query = `${song.name} - ${song.artist}`;
   invokeScheme(`lxmusic://music/searchPlay/${encodeURIComponent(query)}`);
@@ -980,10 +1017,10 @@ function updProgress(){
   else dom.progressFill.style.width = '0%';
   dom.currentTime.textContent = fmt(state.currentTime);
 
-  // 【核心修复】增加 state.playing 判定，防止AI在停止状态下疯狂添加歌曲时触发死循环切歌
+  // 【核心修复】：必须满足 state.playing = true 才能接管切歌，防止AI在停止状态下塞歌引发无限循环！
   if (state.playing && state.duration > 0 && state.currentTime >= state.duration - 1.5) {
-      let list = localPlaylists[activePlaylistName] ||[];
-      if (!switchLock && list.length > 0) {
+      let plName = getPlayingPlaylistContext();
+      if (!switchLock && plName) {
           switchLock = true;
           setTimeout(() => { switchLock = false; }, 4000);
           doSkipNext(false); 
