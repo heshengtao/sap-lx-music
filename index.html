@@ -152,7 +152,12 @@ body.immersion #artworkWrapper { box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
 }
 .lyric-line:hover { color: var(--view-text-main); }
 .lyric-line.active { color: var(--view-text-main); font-size: 26px; font-weight: bold; padding: 24px 20px; text-shadow: 0 2px 12px rgba(0,0,0,0.25); }
-
+body.dark .lyric-line {
+    color: rgba(255, 255, 255, 0.75);   /* 非激活歌词偏白半透明 */
+}
+body.dark .lyric-line.active {
+    color: #ffffff;                      /* 激活歌词纯白 */
+}
 /* ========== 高级感底部控制栏 ========== */
 #bottomBar {
   flex-shrink: 0; height: 80px; background: var(--theme-bar); border-top: 1px solid var(--border);
