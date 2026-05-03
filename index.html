@@ -294,23 +294,118 @@ body.immersion #artworkWrapper { box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
   .bar-right { display: none; }
 }
 
-body.compact { background: transparent !important; -webkit-app-region: drag; }
-html.compact, body.compact #startupScreen { background: transparent !important; padding: 0; justify-content: center; }
-body.compact .startup-card { width: 100%; height: 100%; max-width: none; border-radius: 12px; padding: 0 15px; display: flex; flex-direction: row; align-items: center; gap: 15px; box-shadow: none; }
-body.compact .startup-logo, body.compact .startup-desc, body.compact .startup-title, body.compact #startupScreen .glass-btn { display: none !important; }
-body.compact .startup-card .input-group { margin-bottom: 0; flex: 1; }
-body.compact .startup-card input { margin-bottom: 0; padding: 8px; font-size: 13px; }
-body.compact .startup-card .btn-primary { width: auto; padding: 8px 20px; font-size: 13px; }
-body.compact #playerScreen { background: transparent; }
-body.compact #topBar, body.compact #mainView, body.compact #bgBlur, body.compact #bgMask { display: none !important; }
-body.compact #bottomBar { position: fixed; inset: 0; height: 100% !important; width: 100% !important; display: flex; flex-direction: row !important; align-items: center; justify-content: space-between; padding: 0 15px; border: none; background: var(--theme-bar); border-radius: 12px; }
-body.compact .bar-left { width: auto; flex: 1; min-width: 0; margin-right: 15px; }
-body.compact .mini-cover { width: 45px; height: 45px; }
-body.compact .song-info { max-width: 150px; }
-body.compact .bar-center { width: auto; flex: 0 0 auto; max-width: none; margin: 0; }
-body.compact .controls-row { margin-bottom: 0; gap: 18px; }
-body.compact .progress-container, body.compact .bar-right, body.compact .heart-btn, body.compact .ctrl-btn.minor { display: none !important; }
-body.compact #progressTrack { position: absolute; bottom: 0; left: 0; right: 0; height: 2px; padding: 0; }
+/* ========== 极简模式 (Compact Mode) 核心逻辑 ========== */
+body.compact {
+  background: transparent !important;
+}
+
+/* 1. 处理未连接时的“白屏/显示不全”问题 */
+body.compact #startupScreen {
+  background: var(--theme-bar);
+  padding: 0;
+  justify-content: center;
+}
+body.compact .startup-card {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  border-radius: 12px;
+  padding: 0 15px;
+  display: flex;
+  flex-direction: row; /* 连接界面也横过来 */
+  align-items: center;
+  gap: 15px;
+  box-shadow: none;
+}
+/* 隐藏连接界面多余的装饰 */
+body.compact .startup-logo, 
+body.compact .startup-desc, 
+body.compact .startup-title,
+body.compact #startupScreen .glass-btn { 
+  display: none !important; 
+}
+body.compact .startup-card .input-group {
+  margin-bottom: 0;
+  flex: 1;
+}
+body.compact .startup-card input {
+  margin-bottom: 0;
+  padding: 8px;
+  font-size: 13px;
+}
+body.compact .startup-card .btn-primary {
+  width: auto;
+  padding: 8px 20px;
+  font-size: 13px;
+}
+
+/* 2. 播放界面的横向排布 */
+body.compact #playerScreen {
+  background: transparent;
+}
+body.compact #topBar, body.compact #mainView, body.compact #bgBlur, body.compact #bgMask {
+  display: none !important;
+}
+
+body.compact #bottomBar {
+  position: fixed;
+  inset: 0;
+  height: 100% !important;
+  width: 100% !important;
+  display: flex;
+  flex-direction: row !important; /* 强制横向 */
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 15px;
+  border: none;
+  background: var(--theme-bar);
+  border-radius: 12px;
+}
+
+/* 歌曲信息区 */
+body.compact .bar-left {
+  width: auto;
+  flex: 1;
+  min-width: 0;
+  margin-right: 15px;
+}
+body.compact .mini-cover {
+  width: 45px;
+  height: 45px;
+}
+body.compact .song-info {
+  max-width: 150px;
+}
+
+/* 控制按钮区 */
+body.compact .bar-center {
+  width: auto;
+  flex: 0 0 auto;
+  max-width: none;
+  margin: 0;
+}
+body.compact .controls-row {
+  margin-bottom: 0;
+  gap: 18px; /* 按钮间距 */
+}
+
+/* 隐藏紧凑模式下碍事的元素 */
+body.compact .progress-container,
+body.compact .bar-right,
+body.compact .heart-btn,
+body.compact .ctrl-btn.minor {
+  display: none !important;
+}
+
+/* 进度条变成底部一条 2px 的细线，不占用空间 */
+body.compact #progressTrack {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  padding: 0;
+}
 body.compact .slider-track { height: 2px; }
 body.compact button, body.compact input, body.compact .custom-slider, body.compact .compact-close-btn { -webkit-app-region: no-drag; }
 .compact-close-btn { display: none; }
@@ -1270,8 +1365,13 @@ function closeWindow() { window.close(); }
   if(p) dom.portInput.value = p;
 
   function checkCompactMode() {
-    if (window.innerHeight < 200) { document.documentElement.classList.add('compact'); document.body.classList.add('compact'); } 
-    else { document.documentElement.classList.remove('compact'); document.body.classList.remove('compact'); }
+    // 只要高度小于 200，就进入极简横向模式
+    if (window.innerHeight < 200) {
+      document.body.classList.add('compact');
+      // 这里的逻辑可以保证无论在哪个界面（连接中或播放中），都应用 compact 样式
+    } else {
+      document.body.classList.remove('compact');
+    }
   }
   checkCompactMode(); window.addEventListener('resize', checkCompactMode);
   updateAllTexts();
