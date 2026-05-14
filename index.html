@@ -1191,7 +1191,7 @@ function initWS() {
           { name: `${extId}_delete_playlist`, description: '彻底删除指定的本地歌单', parameters: { type: 'object', properties: { name: { type: 'string', description: '要删除的歌单名称' } }, required:['name'] } },
           { 
             name: `${extId}_add_song_to_current`, 
-            description: '主动将一首或多首歌曲加入当前选中歌单', 
+            description: '主动将一首或多首歌曲加入当前选中本地歌单（仅在后台进行本地数据追加存储，绝对不会触发任何形式的播放、切歌、搜索或客户端操作。请注意：在调用此工具后，绝对禁止调用任何其它播放工具或切歌工具）', 
             parameters: { 
                 type: 'object', 
                 properties: { 
@@ -1206,7 +1206,10 @@ function initWS() {
             } 
           },
           { name: `${extId}_query_current_playlist_songs`, description: '查询当前选中歌单的所有歌曲', parameters: { type: 'object', properties: {} } },
-          { name: `${extId}_remove_song_from_current`, description: '从当前歌单中删除指定的歌曲', parameters: { type: 'object', properties: { songName: { type: 'string' } }, required: ['songName'] } }
+          { name: `${extId}_remove_song_from_current`, description: '从当前歌单中删除指定的歌曲', parameters: { type: 'object', properties: { songName: { type: 'string' } }, required: ['songName'] } },
+          { name: `${extId}_get_current_song_name`, description: '查询当前正在播放的歌曲的歌名', parameters: { type: 'object', properties: {} } },
+          { name: `${extId}_get_current_song_info`, description: '查询当前正在播放的歌曲详细信息（歌名、歌手、播放总时长、当前已播放时间、播放状态、封面图等）', parameters: { type: 'object', properties: {} } },
+          { name: `${extId}_get_current_lyric`, description: '查询当前播放进度对应的当前行歌词文本', parameters: { type: 'object', properties: {} } }
         ]
       }
     }));
@@ -1269,7 +1272,7 @@ async function handleMcpCall(data) {
           
           if (songsToAdd.length > 0) {
               addSongsToPlaylist(activePlaylistName, songsToAdd);
-              resultStr = `已成功将 ${songsToAdd.length} 首歌曲加入歌单 ${activePlaylistName}`;
+              resultStr = `已成功将 ${songsToAdd.length} 首歌曲加入本地歌单 ${activePlaylistName}（已静默添加，未执行任何播放，切忌主动伴随播放指令）`;
           } else {
               resultStr = "未提供有效的歌曲名称数据";
           }
@@ -1283,6 +1286,39 @@ async function handleMcpCall(data) {
         localPlaylists[activePlaylistName] = list.filter(s => s.name !== params.songName);
         if(localPlaylists[activePlaylistName].length < initialLen) { savePlaylists(); resultStr = `已从歌单中移除歌曲: ${params.songName}`; } 
         else { resultStr = `未找到指定歌曲`; }
+      }
+    }
+    else if (tool_name.includes('_get_current_song_name')) {
+      resultStr = state.songName || "未在播放音乐";
+    }
+    else if (tool_name.includes('_get_current_song_info')) {
+      resultStr = JSON.stringify({
+        songName: state.songName || "未在播放音乐",
+        artist: state.artist || "未知歌手",
+        duration: state.duration,
+        currentTime: state.currentTime,
+        progressPercent: state.duration > 0 ? ((state.currentTime / state.duration) * 100).toFixed(2) + '%' : '0%',
+        playing: state.playing,
+        picUrl: state.picUrl || ''
+      });
+    }
+    else if (tool_name.includes('_get_current_lyric')) {
+      if (!state.lyricRaw) {
+        resultStr = "当前无歌词";
+      } else {
+        const lines = parseLRC(state.lyricRaw);
+        if (!lines.length) {
+          resultStr = state.lyricRaw;
+        } else {
+          let activeText = "当前无歌词";
+          const current = state.currentTime;
+          let idx = -1;
+          lines.forEach((l, i) => { if (current >= l.time - 0.3) idx = i; });
+          if (idx >= 0 && lines[idx]) {
+            activeText = lines[idx].text;
+          }
+          resultStr = activeText;
+        }
       }
     }
     else { resultStr = `未知指令`; }
